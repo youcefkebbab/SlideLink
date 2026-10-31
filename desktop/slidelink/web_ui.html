@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>SlideLink</title>
+<style>
+:root{--bg:#f4f5fb;--card:#fff;--fg:#14151a;--mut:#6b6f80;--pri:#4f6bff;--onpri:#fff;--ton:#e3e7ff;--err:#c62828}
+@media(prefers-color-scheme:dark){:root:not([data-t=light]){--bg:#101116;--card:#1b1d26;--fg:#eceef6;--mut:#9a9fb3;--ton:#2a2f4d;--err:#ff8a80}}
+:root[data-t=dark]{--bg:#101116;--card:#1b1d26;--fg:#eceef6;--mut:#9a9fb3;--ton:#2a2f4d;--err:#ff8a80}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:16px -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+#app{height:100%;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:8px;padding:10px 0}
+header h1{font-size:20px;margin:0;flex:1}
+.ic{background:var(--card);color:var(--fg);border:0;border-radius:12px;width:40px;height:40px;font-size:18px}
+.banner{background:var(--err);color:#fff;border-radius:12px;padding:8px 12px;margin-bottom:8px;font-size:14px}
+.row{display:flex;gap:10px}.grow{flex:1}
+button{font:inherit;border:0;border-radius:24px;background:var(--ton);color:var(--fg);padding:12px;touch-action:manipulation}
+button:active{transform:scale(.97)}
+button.pri{background:var(--pri);color:var(--onpri)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:10px 0}
+.chips button{padding:9px 14px;font-size:14px;border-radius:18px}
+.chips button.on{background:var(--pri);color:var(--onpri)}
+.main{flex:1;display:flex;gap:10px;min-height:0;padding:6px 0}
+.main button{font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:30px}
+.big{font-size:56px;line-height:1}
+.bar{height:8px;border-radius:8px;background:var(--ton);overflow:hidden}.bar i{display:block;height:100%;background:var(--pri);width:0}
+.top{display:flex;justify-content:space-between;align-items:center;padding:4px 0 8px}
+.top b{font-size:28px}.mut{color:var(--mut);font-size:13px;text-align:center}
+#pad{flex:1;background:var(--card);border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--mut);touch-action:none;margin:6px 0}
+input[type=range]{width:100%;height:40px;accent-color:var(--pri)}
+.vctl{display:flex;justify-content:space-around;align-items:center;margin:12px 0}
+.vctl button{width:64px;height:64px;border-radius:50%;font-size:24px;padding:0}
+.vctl button.play{width:112px;height:112px;font-size:48px;background:var(--pri);color:var(--onpri)}
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
+#pin{font-size:34px;letter-spacing:8px;text-align:center;padding:12px;border-radius:16px;border:2px solid var(--ton);background:var(--card);color:var(--fg);width:100%}
+.foot{padding:8px 0;text-align:center}.foot button{background:none;color:var(--mut);font-size:14px}
+</style></head><body><div id="app"></div>
+<script>
+const A=document.getElementById('app');
+let token=localStorage.getItem('sl_token')||'',st={mode:'none'},started=null,laser=false,drag=null,view='',banner='',fail=0;
+const $=s=>A.querySelector(s);
+const fmt=s=>{s=Math.max(0,s|0);const h=s/3600|0,m=(s%3600)/60|0,x=s%60,p=n=>String(n).padStart(2,'0');return h?`${h}:${p(m)}:${p(x)}`:`${p(m)}:${p(x)}`};
+async function api(p,body){
+  const r=await fetch(p,{method:body?'POST':'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){token='';localStorage.removeItem('sl_token');view='';draw();throw new Error('auth')}
+  return r.json();
+}
+function theme(){const r=document.documentElement;const dark=r.dataset.t?r.dataset.t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.t=dark?'light':'dark'}
+function head(){return `<header><h1>SlideLink</h1><button class="ic" onclick="theme()">◐</button><button class="ic" onclick="help()">?</button></header>`}
+function help(){alert('1. SlideLink Desktop must be open on the computer.\n2. Phone and computer must be on the same network (or the computer joined to your iPhone Personal Hotspot).\n3. Use the address shown in the desktop window.\n4. Wrong code? Use the code currently shown on the computer (press "New pairing code").\n5. Use Test Connection to check the link.')}
+function login(){
+  view='login';
+  A.innerHTML=head()+`<div class="center"><div style="font-size:56px">🔗</div><div>Enter the code shown on your computer</div>
+  <input id="pin" inputmode="numeric" maxlength="7" autocomplete="off" placeholder="000 000"><div id="e" class="mut" style="color:var(--err)"></div>
+  <button class="pri" id="go">Connect</button></div>`;
+  $('#go').onclick=async()=>{
+    const r=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:$('#pin').value})}).then(r=>r.json()).catch(()=>({err:'net'}));
+    if(r.token){token=r.token;localStorage.setItem('sl_token',token);view='';draw();poll()}
+    else $('#e').textContent={bad_pin:'Wrong code.',need_pin:'Code expired – press “New pairing code” on the computer.',net:'Cannot reach the computer.'}[r.err]||'Error';
+  };
+}
+function pdfUI(){
+  view='pdf';
+  A.innerHTML=head()+`<div id="bn"></div><div class="top"><button id="tm" style="padding:6px 12px;font-size:14px">⏱ 00:00</button><b id="pg"></b><button id="gt" style="padding:6px 12px">#</button></div>
+  <div class="bar"><i id="pb"></i></div><div class="mut" id="ext"></div>
+  <div class="main" id="mn"><button style="flex:1" id="prev"><span class="big">‹</span>Previous</button><button class="pri" style="flex:2" id="next"><span class="big">›</span>Next</button></div>
+  <div id="pad" hidden>Drag to move the laser pointer</div>
+  <div class="chips"><button data-a="first">⏮ First</button><button data-a="last">Last ⏭</button><button data-a="start">▶ Start</button><button data-a="exit">✕ Exit</button><button data-a="fullscreen">⛶ Full</button><button data-a="black" id="bk">Black</button><button data-a="white" id="wh">White</button><button id="lz">◎ Laser</button></div>${foot()}`;
+  const send=(a,x)=>{navigator.vibrate&&navigator.vibrate(8);cmd(a,x)};
+  $('#prev').onclick=()=>send('prev');$('#next').onclick=()=>{started=started||Date.now();send('next')};
+  A.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{if(b.dataset.a==='start')started=started||Date.now();send(b.dataset.a)});
+  $('#tm').onclick=()=>started=null;
+  $('#gt').onclick=()=>{const n=prompt('Go to page (1–'+st.n+')');if(n)send('goto',{n:parseInt(n)})};
+  $('#lz').onclick=()=>{laser=!laser;$('#pad').hidden=!laser;$('#mn').hidden=laser;$('#lz').classList.toggle('on',laser);if(!laser)cmd('laser',{on:false})};
+  let last=0;const pad=$('#pad');
+  const mv=e=>{const t=e.touches?e.touches[0]:e,r=pad.getBoundingClientRect(),n=Date.now();if(n-last<40)return;last=n;
+    cmd('laser',{x:Math.min(1,Math.max(0,(t.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(t.clientY-r.top)/r.height)),on:true})};
+  pad.addEventListener('touchstart',mv);pad.addEventListener('touchmove',e=>{e.preventDefault();mv(e)},{passive:false});pad.addEventListener('touchend',()=>cmd('laser',{on:false}));
+}
+function vidUI(){
+  view='video';
+  A.innerHTML=head()+`<div id="bn"></div><div class="center"><b style="font-size:30px" id="vt"></b>
+  <input type="range" id="sk" min="0" max="1000" value="0">
+  <div class="vctl"><button data-a="vprev">⏮</button><button data-a="back10">⏪</button><button class="play" data-a="toggle" id="pp">⏸</button><button data-a="fwd10">⏩</button><button data-a="vnext">⏭</button></div>
+  <div class="vctl"><button data-a="voldown">🔉</button><b id="vv"></b><button data-a="volup">🔊</button><button data-a="mute">🔇</button><button data-a="vfull">⛶</button><button data-a="stop">⏹</button></div></div>${foot()}`;
+  A.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{navigator.vibrate&&navigator.vibrate(8);cmd(b.dataset.a)});
+  const sk=$('#sk');sk.oninput=()=>drag=sk.value/1000;sk.onchange=()=>{cmd('seek',{pct:sk.value/10});setTimeout(()=>drag=null,600)};
+}
+function foot(){return `<div class="foot"><button onclick="testConn()">Test Connection</button><button onclick="logout()">Disconnect</button></div>`}
+function logout(){token='';localStorage.removeItem('sl_token');view='';draw()}
+async function testConn(){const t=performance.now();try{await api('/api/ping');alert('Connection OK • '+Math.round(performance.now()-t)+' ms')}catch(e){alert('No reply – connection problem')}}
+async function cmd(a,x){try{const r=await api('/api/cmd',{a,...x});if(r.err)show({no_vlc:'VLC is not running. On the computer press “Open MP4 video”.',no_pdf:'No presentation is open on the computer.',keys_failed:'The computer blocked keyboard control (see Troubleshooting).'}[r.err]||'Command failed.')}catch(e){}}
+function show(m){banner=m;const b=$('#bn');if(b)b.innerHTML=`<div class="banner">${m}</div>`;setTimeout(()=>{if(banner===m){banner='';const b=$('#bn');if(b)b.innerHTML=''}},4000)}
+function draw(){if(!token)return login();const want=st.mode==='video'?'video':'pdf';if(view!==want)(want==='video'?vidUI:pdfUI)()}
+function update(){
+  if(!token)return;draw();
+  if(view==='pdf'){const b=st.mode==='pdf';$('#pg').textContent=b?st.pg+' / '+st.n:'External viewer';$('#pb').style.width=b?(st.pg/st.n*100)+'%':'0';
+    $('#ext').textContent=b?'':'No slide counter for other viewers. Use “Open PDF” on the computer for page numbers and laser.';$('#gt').hidden=!b;$('#lz').hidden=!b;
+    $('#bk').classList.toggle('on',st.scr==='b');$('#wh').classList.toggle('on',st.scr==='w');$('#tm').textContent='⏱ '+(started?fmt((Date.now()-started)/1000):'00:00')}
+  if(view==='video'){const f=drag!==null?drag:(st.vl?st.vt/st.vl:0);$('#vt').textContent=fmt(drag!==null?drag*st.vl:st.vt)+' / '+fmt(st.vl);if(drag===null)$('#sk').value=f*1000;
+    $('#pp').textContent=st.vs==='playing'?'⏸':'▶';$('#vv').textContent=st.vv+'%'}
+}
+async function poll(){
+  if(!token)return;
+  try{st=await api('/api/state');fail=0;const b=$('#bn');if(banner===''&&b)b.innerHTML='';update()}
+  catch(e){if(token&&++fail>1){const b=$('#bn');if(b)b.innerHTML='<div class="banner">Connection lost – reconnecting…</div>'}}
+  setTimeout(poll,fail?1500:700);
+}
+setInterval(()=>{if(view==='pdf')update()},1000);
+try{navigator.wakeLock&&navigator.wakeLock.request('screen');document.addEventListener('visibilitychange',()=>{if(!document.hidden)navigator.wakeLock.request('screen').catch(()=>{})})}catch(e){}
+draw();poll();
+</script></body></html>
