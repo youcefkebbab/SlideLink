@@ -223,6 +223,42 @@ class _RemoteState extends State<Remote> {
 
   // ---------------- PDF
   bool laser = false;
+  double? dragLaser;
+  int lastLaserSent = 0;
+  Widget laserSettings(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final size = (dragLaser ?? ((c.st['ls'] ?? 14) as int).toDouble());
+    void sendSize(double v) => c.cmd('laser_size', {'v': v.round()});
+    return Column(children: [
+      Row(children: [
+        const Text('Thin'),
+        Expanded(
+            child: Slider(
+                min: 4,
+                max: 60,
+                divisions: 56,
+                value: size.clamp(4, 60).toDouble(),
+                onChanged: (v) {
+                  setState(() => dragLaser = v);
+                  final now = DateTime.now().millisecondsSinceEpoch;
+                  if (now - lastLaserSent > 80) { lastLaserSent = now; sendSize(v); }
+                },
+                onChangeEnd: (v) { sendSize(v); setState(() => dragLaser = null); })),
+        const Text('Thick'),
+      ]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Container(width: 6 + size * 0.6, height: 6 + size * 0.6, decoration: BoxDecoration(color: const Color(0xFFFF2A2A), shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x80FF2A2A), blurRadius: 8, spreadRadius: 2)])),
+        Text('Thickness ${size.round()}', style: Theme.of(context).textTheme.titleMedium),
+        TextButton(onPressed: () { setState(() => dragLaser = null); c.cmd('laser_reset'); }, child: const Text('Reset')),
+      ]),
+      if (c.st['le'] == false)
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('Laser is turned off on the computer', style: TextStyle(color: cs.error)),
+          TextButton(onPressed: () => c.cmd('laser_enable', {'on': true}), child: const Text('Turn on')),
+        ]),
+    ]);
+  }
+
   Widget pdf(BuildContext context, bool builtIn) {
     final pg = (c.st['pg'] ?? 0) as int, n = (c.st['n'] ?? 0) as int;
     final cs = Theme.of(context).colorScheme;
@@ -243,11 +279,11 @@ class _RemoteState extends State<Remote> {
                   textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant))),
         Expanded(
           child: laser && builtIn
-              ? LayoutBuilder(builder: (ctx, box) => GestureDetector(
+              ? Column(children: [Expanded(child: LayoutBuilder(builder: (ctx, box) => GestureDetector(
                     onPanUpdate: (d) => c.cmd('laser', {'x': (d.localPosition.dx / box.maxWidth).clamp(0, 1), 'y': (d.localPosition.dy / box.maxHeight).clamp(0, 1), 'on': true}),
                     onPanEnd: (_) => c.cmd('laser', {'on': false}),
                     child: Container(margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(24)), child: const Center(child: Text('Drag to move the laser pointer'))),
-                  ))
+                  ))), laserSettings(context)])
               : Row(children: [
                   Expanded(child: SizedBox.expand(child: Padding(padding: const EdgeInsets.all(6), child: FilledButton.tonal(onPressed: () => send('prev'), style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))), child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.arrow_back_ios_new, size: 44), Text('Previous')]))))),
                   Expanded(flex: 2, child: SizedBox.expand(child: Padding(padding: const EdgeInsets.all(6), child: FilledButton(onPressed: () { started ??= DateTime.now(); send('next'); }, style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))), child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.arrow_forward_ios, size: 56), Text('Next', style: TextStyle(fontSize: 20))]))))),

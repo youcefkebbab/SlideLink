@@ -29,10 +29,16 @@ Notes: this uses Wi-Fi/hotspot, **not Bluetooth**; traffic is not encrypted but 
 | Slide counter, go to page, progress | ✅ | ❌ not available |
 | Start / exit / fullscreen | ✅ | ✅ (F5 / Esc / F11 – depends on app) |
 | Black / white screen | ✅ | ⚠ uses B / W keys (PowerPoint, Okular presentation) |
-| Laser pointer | ✅ (drag on phone) | ❌ |
+| Laser pointer (drag on phone) + adjustable thickness | ✅ | ❌ |
 | Timer | ✅ (on the phone, starts at first “Next”/“Start”; tap to reset) | ✅ |
 
 Video (VLC 3.x): play/pause/stop, ±10 s, previous/next, volume ±10 %, mute, fullscreen, seek bar, time/duration, live sync. VLC is controlled through its HTTP interface on `127.0.0.1` only (never leaves the computer). The desktop app starts VLC for you with this enabled; a VLC you opened yourself is **not** controllable.
+
+## PDF sharpness and the laser pointer (built-in presenter)
+* **Sharp slides:** each page is rendered by MuPDF from the PDF's original vector content at the *exact pixel size of the window* (uncompressed, maximum anti-aliasing) – never by stretching a smaller image. The current page, the next 3 and the previous 1 are cached at full resolution (1 GB by default; `cache_mb` in `settings.json`). If a page is not ready yet, the previous sharp slide stays on screen (no blurry placeholder). Resizing, fullscreen and moving to another monitor re-render at the new exact size.
+* **High-DPI (Windows):** SlideLink now declares itself DPI-aware. Without that, Windows stretches the whole Python/Tk window on 125–200 % displays, which blurs everything.
+* **Laser thickness:** press **L** in the presenter, or click **Laser pointer settings…** in the main window, or use the **Laser** chip on the phone (slider, preview, value, Reset). Range 4–60, default 14, measured in pixels on a 1080-line screen and scaled with the screen height, so it looks the same on 1080p, 4K and projectors. Changes apply live and are saved in `%APPDATA%\slidelink\settings.json` (`~/.config/slidelink/` on Linux). The laser is an anti-aliased sprite with smoothed movement.
+* Limits: PDFs only (no animations or embedded video), no password-protected PDFs; on Linux the window is drawn at the X11/Xwayland pixel size, so fractional scaling by the compositor can still soften it – use 100 %/200 % or Xorg.
 
 ## Security
 Each connection uses X25519 key exchange + AES-256-GCM with replay protection. First pairing is authenticated with the 6-digit code (PBKDF2); the code expires after 5 min / 5 wrong tries / one use. Afterwards a random 256-bit secret is stored (phone: Keychain/Keystore; computer: `paired.json`, owner-only) and used for automatic reconnect. Limitation: a 6-digit code is only as strong as the minutes it is valid – pair at home, not on stage.
@@ -46,4 +52,5 @@ Each connection uses X25519 key exchange + AES-256-GCM with replay protection. F
 
 ## Status of testing – read this
 * ✅ Automated – including the browser remote over real HTTP (run `cd desktop && python -m pytest tests`): framing, handshake, pairing, wrong-PIN lockout, replay rejection, auto-reconnect secret, command routing, VLC HTTP commands/state, mode detection.
-* ❌ **Not yet tested on real hardware:** the web page on a real iPhone/Safari, the actual BLE radio layer (bless on Windows/Ubuntu ↔ flutter_blue_plus on phones), the Flutter UI (not compiled in the build sandbox), the Tk presenter window, and the installers. Do the checklist in `docs/HARDWARE_TEST_CHECKLIST.md` before your presentation, and keep a USB/HDMI-keyboard fallback.
+* ✅ Automated (`python -m pytest tests`, Tk tests need a display): exact-size rendering, raw output, anti-aliasing, cache/prefetch, stale-job dropping, laser sprite/thickness/smoothing/persistence, panel + slider + reset in a real Tk window, laser commands over BLE-controller and HTTP.
+* ❌ **Not yet tested on real hardware:** Windows DPI awareness on a scaled screen/projector (written from the Windows API docs, only its fallback logic is unit-tested), the new laser slider in the Flutter app (not compiled) and in a real Safari/Chrome, the web page on a real iPhone/Safari, the actual BLE radio layer (bless on Windows/Ubuntu ↔ flutter_blue_plus on phones), the Flutter UI (not compiled in the build sandbox), the Tk presenter window, and the installers. Do the checklist in `docs/HARDWARE_TEST_CHECKLIST.md` before your presentation, and keep a USB/HDMI-keyboard fallback.

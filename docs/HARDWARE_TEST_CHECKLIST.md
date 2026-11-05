@@ -5,6 +5,9 @@ Computer ↔ phone, repeat for each pairing you plan to use (Windows+Android, Ub
 - [ ] Phone app lists the computer within 10 s; tap → code prompt → connected
 - [ ] Test Connection shows OK (< 500 ms)
 - [ ] Open PDF (20+ pages): next/prev/first/last/go-to, counter matches, black/white, fullscreen, laser
+- [ ] Sharpness: set Windows scaling to 125 % / 150 %, open a PDF with small text and a formula, go fullscreen: text edges are crisp; repeat on the projector (also with a different scale than the laptop)
+- [ ] Navigation: press Next quickly 10×: slides stay sharp, no blurry flashes, counter matches
+- [ ] Laser: drag on phone – dot is smooth, no jagged edge; thickness slider on phone and in the desktop panel (L key) changes it live; Reset returns to 14; restart the app: thickness is remembered; thick enough on the projector from the back row
 - [ ] Other viewer (PowerPoint/Okular): next/prev/start/exit work
 - [ ] Open MP4 via the desktop button: phone switches to video; play/pause/±10 s/volume/mute/seek/fullscreen/next
 - [ ] Walk 8 m away, come back: auto-reconnect works

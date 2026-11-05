@@ -30,6 +30,8 @@ button.pri{background:var(--pri);color:var(--onpri)}
 .top b{font-size:28px}.mut{color:var(--mut);font-size:13px;text-align:center}
 #pad{flex:1;background:var(--card);border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--mut);touch-action:none;margin:6px 0}
 input[type=range]{width:100%;height:40px;accent-color:var(--pri)}
+#lzp{padding:4px 4px 0}.lzr{display:flex;align-items:center;gap:10px;justify-content:space-between;margin:4px 0}.lzr button{padding:8px 14px;font-size:14px;border-radius:16px}
+#lsp{display:inline-block;border-radius:50%;background:#ff2a2a;box-shadow:0 0 8px 2px rgba(255,42,42,.5);flex:none}
 .vctl{display:flex;justify-content:space-around;align-items:center;margin:12px 0}
 .vctl button{width:64px;height:64px;border-radius:50%;font-size:24px;padding:0}
 .vctl button.play{width:112px;height:112px;font-size:48px;background:var(--pri);color:var(--onpri)}
@@ -39,7 +41,7 @@ input[type=range]{width:100%;height:40px;accent-color:var(--pri)}
 </style></head><body><div id="app"></div>
 <script>
 const A=document.getElementById('app');
-let token=localStorage.getItem('sl_token')||'',st={mode:'none'},started=null,laser=false,drag=null,view='',banner='',fail=0;
+let token=localStorage.getItem('sl_token')||'',st={mode:'none'},started=null,laser=false,lsDrag=false,drag=null,view='',banner='',fail=0;
 const $=s=>A.querySelector(s);
 const fmt=s=>{s=Math.max(0,s|0);const h=s/3600|0,m=(s%3600)/60|0,x=s%60,p=n=>String(n).padStart(2,'0');return h?`${h}:${p(m)}:${p(x)}`:`${p(m)}:${p(x)}`};
 async function api(p,body){
@@ -67,18 +69,24 @@ function pdfUI(){
   <div class="bar"><i id="pb"></i></div><div class="mut" id="ext"></div>
   <div class="main" id="mn"><button style="flex:1" id="prev"><span class="big">‹</span>Previous</button><button class="pri" style="flex:2" id="next"><span class="big">›</span>Next</button></div>
   <div id="pad" hidden>Drag to move the laser pointer</div>
+  <div id="lzp" hidden><div class="lzr"><span>Thin</span><input type="range" id="ls" min="4" max="60" step="1"><span>Thick</span></div><div class="lzr"><span id="lsp"></span><b id="lsv"></b><button id="lsr">Reset</button></div><div class="mut" id="lse"></div></div>
   <div class="chips"><button data-a="first">⏮ First</button><button data-a="last">Last ⏭</button><button data-a="start">▶ Start</button><button data-a="exit">✕ Exit</button><button data-a="fullscreen">⛶ Full</button><button data-a="black" id="bk">Black</button><button data-a="white" id="wh">White</button><button id="lz">◎ Laser</button></div>${foot()}`;
   const send=(a,x)=>{navigator.vibrate&&navigator.vibrate(8);cmd(a,x)};
   $('#prev').onclick=()=>send('prev');$('#next').onclick=()=>{started=started||Date.now();send('next')};
   A.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{if(b.dataset.a==='start')started=started||Date.now();send(b.dataset.a)});
   $('#tm').onclick=()=>started=null;
   $('#gt').onclick=()=>{const n=prompt('Go to page (1–'+st.n+')');if(n)send('goto',{n:parseInt(n)})};
-  $('#lz').onclick=()=>{laser=!laser;$('#pad').hidden=!laser;$('#mn').hidden=laser;$('#lz').classList.toggle('on',laser);if(!laser)cmd('laser',{on:false})};
+  $('#lz').onclick=()=>{laser=!laser;$('#pad').hidden=!laser;$('#lzp').hidden=!laser;$('#mn').hidden=laser;$('#lz').classList.toggle('on',laser);if(!laser)cmd('laser',{on:false})};
+  const ls=$('#ls');let lsAt=0;
+  ls.oninput=()=>{lsDrag=true;lsShow(+ls.value);const n=Date.now();if(n-lsAt>80){lsAt=n;cmd('laser_size',{v:+ls.value})}};
+  ls.onchange=()=>{cmd('laser_size',{v:+ls.value});setTimeout(()=>lsDrag=false,700)};
+  $('#lsr').onclick=()=>{lsDrag=false;cmd('laser_reset')};
   let last=0;const pad=$('#pad');
   const mv=e=>{const t=e.touches?e.touches[0]:e,r=pad.getBoundingClientRect(),n=Date.now();if(n-last<40)return;last=n;
     cmd('laser',{x:Math.min(1,Math.max(0,(t.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(t.clientY-r.top)/r.height)),on:true})};
   pad.addEventListener('touchstart',mv);pad.addEventListener('touchmove',e=>{e.preventDefault();mv(e)},{passive:false});pad.addEventListener('touchend',()=>cmd('laser',{on:false}));
 }
+function lsShow(v){$('#lsv').textContent='Thickness '+v;$('#lsp').style.width=$('#lsp').style.height=Math.round(6+v*0.6)+'px'}
 function vidUI(){
   view='video';
   A.innerHTML=head()+`<div id="bn"></div><div class="center"><b style="font-size:30px" id="vt"></b>
@@ -98,6 +106,7 @@ function update(){
   if(!token)return;draw();
   if(view==='pdf'){const b=st.mode==='pdf';$('#pg').textContent=b?st.pg+' / '+st.n:'External viewer';$('#pb').style.width=b?(st.pg/st.n*100)+'%':'0';
     $('#ext').textContent=b?'':'No slide counter for other viewers. Use “Open PDF” on the computer for page numbers and laser.';$('#gt').hidden=!b;$('#lz').hidden=!b;
+    if(st.ls!==undefined&&!lsDrag){$('#ls').value=st.ls;lsShow(st.ls)}$('#lse').innerHTML=st.le===false?'Laser is turned off on the computer (Laser pointer settings).':'';
     $('#bk').classList.toggle('on',st.scr==='b');$('#wh').classList.toggle('on',st.scr==='w');$('#tm').textContent='⏱ '+(started?fmt((Date.now()-started)/1000):'00:00')}
   if(view==='video'){const f=drag!==null?drag:(st.vl?st.vt/st.vl:0);$('#vt').textContent=fmt(drag!==null?drag*st.vl:st.vt)+' / '+fmt(st.vl);if(drag===null)$('#sk').value=f*1000;
     $('#pp').textContent=st.vs==='playing'?'⏸':'▶';$('#vv').textContent=st.vv+'%'}

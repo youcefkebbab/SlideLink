@@ -1,5 +1,7 @@
 """Executes phone commands: built-in PDF presenter, external-viewer keystrokes, VLC."""
-PDF_ACTIONS = {"next", "prev", "first", "last", "goto", "start", "exit", "fullscreen", "black", "white", "laser"}
+import math
+PDF_ACTIONS = {"next", "prev", "first", "last", "goto", "start", "exit", "fullscreen", "black", "white", "laser",
+               "laser_size", "laser_reset", "laser_enable"}
 VIDEO_ACTIONS = {"play", "pause", "toggle", "stop", "back10", "fwd10", "vprev", "vnext",
                  "volup", "voldown", "mute", "vfull", "seek"}
 # keystrokes used for external viewers (PowerPoint, Okular, Evince, Adobe, browser...)
@@ -33,6 +35,20 @@ class Controller:
 
     def _pdf(self, a, m):
         p = self.presenter
+        if a in ("laser_size", "laser_reset", "laser_enable"):   # settings: valid with or without an open PDF
+            try:
+                if a == "laser_size":
+                    v = float(m["v"])
+                    if not math.isfinite(v):          # NaN / inf from a buggy or hostile client
+                        raise ValueError("not finite")
+                    p.set_laser_size(v)
+                elif a == "laser_reset":
+                    p.reset_laser_size()
+                else:
+                    p.set_laser_enabled(bool(m.get("on", True)))
+            except (KeyError, TypeError, ValueError, OverflowError):
+                return {"t": "err", "code": "bad_param"}
+            return None
         if p.snapshot().get("open"):
             if a == "goto":
                 p.goto(int(m.get("n", 1)))
@@ -74,5 +90,8 @@ class Controller:
                     "vv": self.vlc.volume_pct(st), "vf": bool(st.get("fullscreen"))}
         snap = self.presenter.snapshot()
         if snap.get("open"):
-            return {"mode": "pdf", "pg": snap["page"], "n": snap["pages"], "scr": snap["screen"], "fs": snap["fs"]}
+            st = {"mode": "pdf", "pg": snap["page"], "n": snap["pages"], "scr": snap["screen"], "fs": snap["fs"]}
+            if "laser_size" in snap:                      # current laser thickness / enabled flag for the phone UI
+                st["ls"], st["le"] = snap["laser_size"], snap["laser_enabled"]
+            return st
         return {"mode": "none"}

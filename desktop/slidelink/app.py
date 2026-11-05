@@ -8,6 +8,7 @@ from .presenter import Presenter
 from .vlc import Vlc, find_vlc
 from .ble_server import BleServer
 from .web import WebServer, local_ip, PORT
+from .display import enable_high_dpi, dpi_scale
 
 HINTS = {
     "Windows": "Turn Bluetooth ON in Settings > Bluetooth & devices. Windows 10 (1703+) or 11 is required.",
@@ -29,9 +30,11 @@ def bt_hint():
 
 
 def main():
+    enable_high_dpi()          # must run before the first Tk window: keeps slides sharp on scaled displays
     root = tk.Tk()
     root.title("SlideLink Desktop")
-    root.geometry("440x560")
+    scale = dpi_scale(root)
+    root.geometry(f"{int(440 * scale)}x{int(610 * scale)}")
     events = queue.Queue()
     pins, store, vlc, presenter = PinManager(), PairStore(), Vlc(), Presenter(root)
     ctrl = Controller(presenter, vlc)
@@ -51,7 +54,7 @@ def main():
     pin_lbl = tk.Label(root, font=("Courier", 34, "bold")); pin_lbl.pack()
     tk.Label(root, text="iPhone / browser remote – open this address on the phone:").pack(pady=(10, 0))
     url_lbl = tk.Label(root, text=url, font=("Helvetica", 14, "bold"), fg="#1a4fd6"); url_lbl.pack()
-    info = tk.Label(root, text="", wraplength=380, fg="#b00020"); info.pack(pady=4)
+    info = tk.Label(root, text="", wraplength=int(380 * scale), fg="#b00020"); info.pack(pady=4)
 
     def refresh_pin():
         pin_lbl.config(text=" ".join(pins.pin[i:i + 3] for i in (0, 3)))
@@ -62,7 +65,10 @@ def main():
     def open_pdf():
         p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if p:
-            presenter.open(p)
+            try:
+                presenter.open(p)
+            except Exception as e:
+                messagebox.showerror("Cannot open PDF", str(e))
 
     def open_video():
         p = filedialog.askopenfilename(filetypes=[("Video", "*.mp4 *.mkv *.avi *.mov")])
@@ -70,7 +76,7 @@ def main():
             messagebox.showerror("VLC not found", "Please install VLC Media Player (videolan.org).")
 
     for text, cmd in (("Open PDF presentation", open_pdf), ("Open MP4 video (VLC)", open_video),
-                      ("New pairing code", new_code)):
+                      ("Laser pointer settings…", presenter.open_laser_panel), ("New pairing code", new_code)):
         tk.Button(root, text=text, command=cmd, width=28).pack(pady=3)
     tk.Button(root, text="Quit", command=root.destroy, width=28).pack(pady=3)
     tk.Label(root, text="Close this window to hide it; the receiver keeps running.\nTip: minimise it, then use your phone.",
