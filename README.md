@@ -1,5 +1,7 @@
 # SlideLink – Bluetooth presentation remote
 
+**Developed by [youcefkebbab](https://github.com/youcefkebbab)**
+
 Phone (Android / iPhone) → Bluetooth Low Energy → Computer (Windows 10/11, Ubuntu). No Wi-Fi, no Internet, no accounts.
 
 ## Use (2 minutes)

@@ -81,6 +81,7 @@ def main():
     tk.Button(root, text="Quit", command=root.destroy, width=28).pack(pady=3)
     tk.Label(root, text="Close this window to hide it; the receiver keeps running.\nTip: minimise it, then use your phone.",
              fg="gray").pack(pady=8)
+    tk.Label(root, text="Developed by youcefkebbab", fg="gray").pack(pady=(0, 6))
     if not find_vlc():
         info.config(text="VLC not found – video control needs VLC Media Player.")
 

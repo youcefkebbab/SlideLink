@@ -96,7 +96,7 @@ function vidUI(){
   A.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{navigator.vibrate&&navigator.vibrate(8);cmd(b.dataset.a)});
   const sk=$('#sk');sk.oninput=()=>drag=sk.value/1000;sk.onchange=()=>{cmd('seek',{pct:sk.value/10});setTimeout(()=>drag=null,600)};
 }
-function foot(){return `<div class="foot"><button onclick="testConn()">Test Connection</button><button onclick="logout()">Disconnect</button></div>`}
+function foot(){return `<div class="foot"><button onclick="testConn()">Test Connection</button><button onclick="logout()">Disconnect</button></div><div class="mut" style="padding-bottom:8px">Developed by youcefkebbab</div>`}
 function logout(){token='';localStorage.removeItem('sl_token');view='';draw()}
 async function testConn(){const t=performance.now();try{await api('/api/ping');alert('Connection OK • '+Math.round(performance.now()-t)+' ms')}catch(e){alert('No reply – connection problem')}}
 async function cmd(a,x){try{const r=await api('/api/cmd',{a,...x});if(r.err)show({no_vlc:'VLC is not running. On the computer press “Open MP4 video”.',no_pdf:'No presentation is open on the computer.',keys_failed:'The computer blocked keyboard control (see Troubleshooting).'}[r.err]||'Command failed.')}catch(e){}}
